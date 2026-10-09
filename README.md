@@ -96,8 +96,10 @@ select vault.update_secret((select id from vault.secrets where name = 'vercel_de
 |---|---|
 | `posts` | read rows where `status = 'published'` |
 | `pages`, `categories`, `post_hearts` | read |
-| `subscribers` | insert `email` only (rate-limited); cannot read |
+| `subscribers` | nothing directly; sign up only via `subscribe(p_email)`, which always gives the same response so it can't reveal who's subscribed |
 | `messages` | insert `name`, `email`, `body` only (rate-limited); cannot read |
 | `heart_post(p_slug)` | add 1 to a published piece's heart count |
+
+All three write paths are rate-limited per visitor (60 hearts, 10 sign-ups, 5 messages an hour) using a salted hash of the visitor's IP, kept for 24 hours in the unexposed `private` schema.
 
 Never put the Supabase **secret** / `service_role` key in this repo or in Vercel env vars. The site doesn't need it.

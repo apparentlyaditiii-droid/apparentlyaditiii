@@ -101,7 +101,7 @@
       input.removeAttribute('aria-invalid');
       btn.disabled = true;
       setStatus(form, 'Adding you…');
-      supabase('subscribers', { method: 'POST', prefer: 'return=minimal', body: { email: email, source: location.pathname } })
+      supabase('rpc/subscribe', { method: 'POST', body: { p_email: email, p_source: location.pathname } })
         .then(function () {
           form.reset();
           setStatus(form, 'You’re on the list. The next piece will find you.', 'ok');
