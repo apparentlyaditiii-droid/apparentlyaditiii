@@ -1,0 +1,160 @@
+#!/usr/bin/env node
+// One-time import: pulls posts + the About page from apparentlyaditiii.wordpress.com
+// and writes a SQL migration that seeds Supabase with them.
+//
+//   node scripts/import-wordpress.mjs
+//
+// Re-running regenerates the same migration file. Rows are inserted with
+// ON CONFLICT DO NOTHING, so applying it never overwrites edits made later.
+
+import { writeFile } from 'node:fs/promises';
+
+const SITE = 'apparentlyaditiii.wordpress.com';
+const API = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE}`;
+const OUT = new URL('../supabase/migrations/20261009110000_import_wordpress_content.sql', import.meta.url);
+
+// Editorial choices WordPress doesn't hold (everything there is "Uncategorized").
+const EDITORIAL = {
+  'lost-but-found': { category: 'poems', tags: ['letting go', 'mountains'] },
+  'ek-cutting-chai': { category: 'unsent-notes', tags: ['hinglish', 'strangers'],
+    excerpt: 'Roz subah, theek 8 baje, tumhe station par dekhti hoon… a stranger worth knowing over tea.' },
+  'would-you-kiss-me-anyway': { category: 'unsent-notes', tags: ['love'],
+    excerpt: 'The laughter was louder than the TV. By the time we finally fell asleep, I was all…' },
+  'dead-yet-beautiful-in-full-bloom': { category: 'poems', tags: ['dead-yet-beautiful', 'renewal'],
+    excerpt: 'For nothing that withers is ever in vain; it rests, it reshapes, it transforms in disguise.' },
+  'dead-yet-beautiful': { category: 'poems', tags: ['dead-yet-beautiful', 'renewal'],
+    excerpt: 'Though wilted like this flower, you may feel lifeless and dry, but in the nourishing soil…' },
+  'i-want-to-become-an-ice-cream-seller': { category: 'reflections', tags: ['childhood', 'dreams'], featured: true,
+    excerpt: "We didn't choose dreams based on salaries, stability, or how impressive they sounded when said out loud." },
+  'pyaar': { category: 'poems', tags: ['hindi', 'love'],
+    excerpt: 'Mama, प्यार क्या है? A quiet confession of disillusionment, about love, its sacrifices and its questions.' },
+  'before-i-move-on': { category: 'reflections', tags: ['year in review'],
+    excerpt: "2025 was a true roller coaster. The kind that doesn't ask if you're ready before it drops." },
+  'apparently': { category: 'reflections', tags: ['start here'],
+    excerpt: "Apparently, some thoughts don't fade – they wait. This isn't a blog about having it all figured out." },
+};
+
+// WordPress slugs can be percent-encoded Devanagari; keep URLs plain ASCII.
+const SLUG_OVERRIDES = { 'प्यार': 'pyaar' };
+
+function cleanHtml(html) {
+  return html
+    .replace(/<br\s*\/?>/g, '<br>')
+    .replace(/ class="wp-block-paragraph"/g, '')
+    .replace(/ class="([^"]*)"/g, (m, cls) => {
+      const kept = cls.split(/\s+/).filter((c) =>
+        !['wp-block-paragraph', 'has-text-align-left', 'alignleft', 'size-large', 'has-inline-color'].includes(c)
+        && !/^wp-image-\d+$/.test(c));
+      return kept.length ? ` class="${kept.join(' ')}"` : '';
+    })
+    // WordPress hardcodes red highlights; use the theme accent so dark mode works.
+    .replace(/<mark style="[^"]*">/g, '<mark class="accent">')
+    .replace(/\s(data-[a-z-]+|sizes)="[^"]*"/g, '')
+    .replace(/<p>(\s*<br>)+/g, '<p>')
+    .replace(/(<br>\s*)+<\/p>/g, '</p>')
+    .replace(/<p[^>]*>\s*<\/p>/g, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+const stripTags = (html) => html.replace(/<[^>]+>/g, '').replace(/&#8217;/g, '’').replace(/&#8211;/g, '–')
+  .replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+function sqlText(value) {
+  if (value === null || value === undefined) return 'null';
+  const s = String(value);
+  if (s.includes('$wp$')) throw new Error('content contains the dollar-quote tag');
+  return `$wp$${s}$wp$`;
+}
+const sqlArray = (arr) => `array[${arr.map(sqlText).join(', ')}]::text[]`;
+
+async function getJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${url}`);
+  return res.json();
+}
+
+const fields = 'ID,title,slug,date,content,excerpt,featured_image';
+const { posts } = await getJson(`${API}/posts/?number=100&fields=${fields}`);
+const { posts: wpPages } = await getJson(`${API}/posts/?type=page&number=50&fields=ID,title,slug,content`);
+
+const rows = posts.map((p) => {
+  const decodedSlug = decodeURIComponent(p.slug);
+  const slug = SLUG_OVERRIDES[decodedSlug] ?? decodedSlug;
+  const ed = EDITORIAL[slug];
+  if (!ed) throw new Error(`No editorial mapping for "${slug}". Add it to EDITORIAL.`);
+  return `(${[
+    sqlText(slug),
+    sqlText(stripTags(p.title)),
+    sqlText(ed.excerpt ?? stripTags(p.excerpt)),
+    sqlText(cleanHtml(p.content)),
+    `'html'`,
+    sqlText(ed.category),
+    sqlArray(ed.tags),
+    `'en'`,
+    sqlText(p.featured_image || null),
+    ed.featured ? 'true' : 'false',
+    `'published'`,
+    sqlText(p.date),
+  ].join(', ')})`;
+});
+
+const about = wpPages.find((p) => p.slug === 'about');
+
+const sql = `-- Generated by scripts/import-wordpress.mjs from ${SITE}. Safe to re-apply.
+
+insert into public.categories (slug, name, description, verse, sort_order) values
+  ('poems', 'Poems', 'Verse, in English and Hindi, sometimes both at once.', true, 1),
+  ('reflections', 'Reflections', 'Longer looks back at a year, a dream, a turning point.', false, 2),
+  ('unsent-notes', 'Unsent Notes', 'Letters to people who will probably never read them.', false, 3)
+on conflict (slug) do nothing;
+
+insert into public.posts
+  (slug, title, excerpt, content, content_format, category_slug, tags, lang, cover_image_url, featured, status, published_at)
+values
+${rows.join(',\n')}
+on conflict (slug) do nothing;
+
+insert into public.pages (slug, title, kicker, intro, content, content_format) values
+  ('about', 'Hello, I’m Aditi.', 'About',
+   'A personal archive of thoughts, feelings, and moments that didn''t always ask to be shared.',
+   ${sqlText(cleanHtml(about?.content ?? ''))}, 'html'),
+  ('privacy', 'Privacy', 'Legal', 'Short version: this site doesn’t track you.', ${sqlText(`## What’s collected
+
+- No advertising, tracking cookies or third-party analytics scripts run on this site.
+- The hosting provider (Vercel) keeps standard server logs (IP address, browser, pages requested) for security and reliability.
+- A light/dark theme choice, and which pieces you’ve hearted, are stored in your own browser. They never leave your device.
+- Tapping ♥ on a piece adds one to an anonymous counter. Nothing about you is stored with it.
+
+## Newsletter
+
+If you subscribe, your email address is stored in this site’s database (hosted by Supabase) solely to tell you about new pieces. It is never shared or sold. Write to me any time and your address will be deleted.
+
+## Contact form
+
+If you send a message, your name, email and message are stored in the same database so I can read and reply to them. They aren’t shared with anyone, and I’ll delete them on request.
+
+## Questions
+
+Privacy questions: [aditi.sharmaa333@gmail.com](mailto:aditi.sharmaa333@gmail.com).`)}, 'markdown'),
+  ('terms', 'Terms of use', 'Legal', 'Please don’t copy whole pieces without asking.', ${sqlText(`## Copyright
+
+All writing and original images on this site are © Aditi unless stated otherwise. You’re welcome to quote a few lines with a link back to the original piece. Reproducing whole pieces, in print or online, needs written permission.
+
+## Sharing
+
+Sharing links to pieces is always welcome.
+
+## Changes
+
+These terms may be updated occasionally. The current version always lives on this page.`)}, 'markdown'),
+  ('disclaimer', 'Disclaimer', 'Legal', 'Personal writing, not advice.', ${sqlText(`Everything on this site is personal reflection and creative writing. It describes one person’s experiences and feelings, and isn’t professional, medical, legal or financial advice.
+
+Some pieces are drawn from life and some are imagined; names and details may have been changed. Any resemblance to a specific person is not an invitation to guess who.
+
+Some images are illustrations made with AI tools.`)}, 'markdown')
+on conflict (slug) do nothing;
+`;
+
+await writeFile(OUT, sql);
+console.log(`Wrote ${posts.length} posts and ${wpPages.length ? 'pages' : 'no pages'} to ${OUT.pathname}`);

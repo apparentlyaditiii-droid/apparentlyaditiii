@@ -1,0 +1,19 @@
+{
+  "name": "apparently-aditiii",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Apparently, Aditiii: a personal archive of writing. Static site built from Supabase, hosted on Vercel.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node src/build.mjs",
+    "preview": "node scripts/serve.mjs",
+    "dev": "node src/build.mjs && node scripts/serve.mjs",
+    "import:wordpress": "node scripts/import-wordpress.mjs"
+  },
+  "dependencies": {
+    "marked": "18.0.14"
+  }
+}

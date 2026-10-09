@@ -1,0 +1,58 @@
+/* Components added on top of the original design (forms, hearts, covers).
+   Uses the same tokens as site.css so light and dark themes both work. */
+
+.skip-link{position:absolute;left:1rem;top:-3rem;z-index:50;background:var(--ink);color:var(--paper);padding:.5rem .9rem;border-radius:.25rem;font-family:var(--font-sans);font-size:.85rem;transition:top .15s}
+.skip-link:focus{top:.75rem}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+nav a[aria-current="page"]{color:var(--ink)}
+
+/* Cover images */
+.cover img{display:block;width:100%;height:auto;max-height:78vh;object-fit:cover;border-radius:2px;background:var(--paper-2)}
+.cover-lead{position:relative;overflow:hidden;background:var(--accent-soft)}
+.cover-lead img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+.group:hover .cover-lead img{transform:scale(1.025)}
+.cover-number{position:absolute;right:.9rem;bottom:.6rem;font-family:var(--font-serif);font-style:italic;font-size:clamp(3rem,8vw,5.5rem);line-height:.8;letter-spacing:-.04em;color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.35)}
+
+/* WordPress highlights, mapped to the accent colour */
+.prose-article mark.accent{background:transparent;color:var(--accent);padding:0}
+
+/* Form controls */
+.field{width:100%;min-height:3rem;border:1px solid var(--rule);background:var(--card);color:var(--ink);border-radius:.25rem;padding:.7rem .9rem;font:inherit;font-size:1rem;transition:border-color .15s,box-shadow .15s}
+.field::placeholder{color:var(--ink-3)}
+.field:hover{border-color:var(--ink-3)}
+.field:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 25%,transparent)}
+.field[aria-invalid="true"]{border-color:var(--accent)}
+textarea.field{resize:vertical;min-height:10rem;line-height:1.55}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:3rem;padding:0 1.5rem;border:0;border-radius:.25rem;background:var(--ink);color:var(--paper);font:inherit;font-weight:500;cursor:pointer;white-space:nowrap;transition:background-color .15s,opacity .15s}
+.btn:hover{background:var(--accent)}
+.btn[disabled]{opacity:.6;cursor:progress}
+.hp{position:absolute!important;left:-10000px;width:1px;height:1px;overflow:hidden}
+.form-status{min-height:1.4em;margin-top:.6rem;font-size:.88rem;color:var(--ink-2)}
+.form-status[data-state="ok"]{color:var(--ink)}
+.form-status[data-state="error"]{color:var(--accent-ink)}
+
+.nl-form{position:relative}
+.nl-row{display:flex;gap:.6rem;flex-wrap:wrap}
+.nl-row .field{flex:1 1 14rem;width:auto}
+.nl-form .text-ink-3 a{text-decoration:underline;text-underline-offset:4px}
+
+.contact-form{position:relative;display:grid;gap:1.4rem}
+.field-group label{display:block;margin-bottom:.45rem;font-size:.88rem;font-weight:500;color:var(--ink)}
+.form-actions{display:flex;flex-wrap:wrap;align-items:center;gap:1rem}
+.form-actions .form-status{margin-top:0}
+
+/* Hearts */
+.heart-btn{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--rule);border-radius:999px;padding:.375rem .85rem;background:transparent;color:var(--ink-2);font:inherit;cursor:pointer;transition:border-color .15s,color .15s,background-color .15s}
+.heart-btn svg{fill:none;stroke:currentColor;stroke-width:1.7;transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+.heart-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.heart-btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.heart-btn[aria-pressed="true"] svg{fill:var(--accent);stroke:var(--accent)}
+.heart-btn.is-popping svg{transform:scale(1.35)}
+@media (prefers-reduced-motion:reduce){.heart-btn svg,.cover-lead img{transition:none}}
+
+/* Search results */
+[data-search-results] mark{background:var(--accent-soft);color:inherit;padding:0 .1em;border-radius:2px}
+
+/* Utilities not present in the precompiled Tailwind build */
+.ml-2{margin-left:calc(var(--spacing) * 2)}
+@media (min-width:40rem){.sm\:text-right{text-align:right}}

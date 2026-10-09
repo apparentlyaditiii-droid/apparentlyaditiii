@@ -1,0 +1,19 @@
+# Free Supabase projects pause after a week without activity. If that happens,
+# the site still loads (it's static), but forms, hearts and rebuilds stop
+# working. This makes one tiny read every 3 days to keep it awake.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read one row
+        run: |
+          curl --fail --silent --show-error \
+            -H "apikey: sb_publishable_ln0ahNgZdpdx7a6E8Zn1rQ_jkLsqZ30" \
+            "https://kpawyicwisdgthdpwooz.supabase.co/rest/v1/categories?select=slug&limit=1"
