@@ -105,10 +105,7 @@
         .then(function () {
           form.reset();
           setStatus(form, 'You’re on the list. The next piece will find you.', 'ok');
-        }, function (err) {
-          if (err.code === '23505') setStatus(form, 'You’re already on the list. Thank you for staying.', 'ok');
-          else setStatus(form, friendlyError(err), 'error');
-        })
+        }, function (err) { setStatus(form, friendlyError(err), 'error'); })
         .then(function () { btn.disabled = false; });
     });
   });
