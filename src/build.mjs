@@ -31,32 +31,39 @@ async function hashedAsset(sources, name, ext) {
 
 const started = Date.now();
 const content = await loadContent();
-const { posts, categories, tags, pages } = content;
+const { posts, categories, tags, pages, years } = content;
 
 await rm(dist, { recursive: true, force: true });
 await cp(path.join(root, 'static'), dist, { recursive: true });
 
 const assets = {
-  css: await hashedAsset(['styles/site.css', 'styles/components.css'], 'site', 'css'),
+  css: await hashedAsset(['styles/site.css', 'styles/components.css', 'styles/journal.css'], 'site', 'css'),
   js: await hashedAsset(['client/app.js'], 'app', 'js'),
+  // Only the private preview page renders Markdown in the browser.
+  marked: await hashedAsset(['../node_modules/marked/lib/marked.umd.js'], 'marked', 'js'),
 };
 
 const render = (urlPath, opts) => write(urlPath, document({ path: urlPath, categories, assets, ...opts }));
 const sitemap = [];
 const emit = async (urlPath, opts) => {
   await render(urlPath, opts);
-  if (!opts.noindex) sitemap.push(urlPath);
+  if (!opts.noindex) sitemap.push({ path: urlPath, lastmod: opts.lastmod });
 };
+const newest = (list) => list.reduce((m, p) => (p.updated_at > m ? p.updated_at : m), list[0]?.updated_at);
 
 await emit('/', {
   body: t.home(content),
+  lastmod: newest(posts),
   jsonLd: { '@context': 'https://schema.org', '@type': 'Blog', name: config.title, description: config.tagline, url: absolute('/'),
     author: { '@type': 'Person', name: config.author } },
 });
-await emit('/archive/', { title: 'The archive', description: `Every piece on ${config.title}, newest first.`, body: t.archive(content) });
+await emit('/archive/', { title: 'The archive', description: `Every piece on ${config.title}, by year and category.`, body: t.archive(content), lastmod: newest(posts) });
+for (const y of years) {
+  await emit(y.path, { title: `Written in ${y.year}`, description: `Pieces from ${y.year} on ${config.title}.`, body: t.archiveYear({ year: y, years, categories, total: posts.length }), lastmod: newest(y.posts) });
+}
 
 for (const c of categories) {
-  await emit(c.path, { title: c.name, description: c.description, body: t.category({ category: c, categories, total: posts.length }) });
+  await emit(c.path, { title: c.name, description: c.description, body: t.category({ category: c, categories, total: posts.length }), lastmod: newest(c.posts) });
 }
 for (const tag of tags) {
   await emit(tag.path, { title: `#${tag.name}`, description: `Pieces tagged “${tag.name}”.`, body: t.tag({ tag }), noindex: tag.posts.length < 2 });
@@ -68,11 +75,12 @@ for (const p of posts) {
     description: p.excerpt,
     image: t.ogImage(p),
     type: 'article',
+    lastmod: p.updated_at,
     body: t.post({ post: p, posts }),
     jsonLd: {
       '@context': 'https://schema.org', '@type': 'BlogPosting', headline: p.title, description: p.excerpt,
       datePublished: p.published_at, dateModified: p.updated_at, url: absolute(p.path),
-      image: t.ogImage(p), inLanguage: p.lang, articleSection: p.category?.name,
+      image: t.ogImage(p), inLanguage: p.lang, articleSection: p.categories.map((c) => c.name),
       author: { '@type': 'Person', name: config.author, url: absolute('/about/') },
     },
   });
@@ -88,16 +96,22 @@ for (const slug of ['about', 'privacy', 'terms', 'disclaimer']) {
 }
 
 await emit('/contact/', { title: 'Contact', description: 'Write to Aditi.', body: t.contact() });
-await emit('/search/', { title: 'Search', body: t.search({ total: posts.length }), noindex: true });
+await emit('/search/', { title: 'Search', body: t.search({ total: posts.length, categories }), noindex: true });
+await emit('/subscribe/confirm/', { title: 'Confirm your subscription', body: t.confirmSubscription(), noindex: true });
+await emit('/unsubscribe/', { title: 'Unsubscribe', body: t.unsubscribe(), noindex: true });
+await emit('/moderate/', { title: 'Review a comment', body: t.moderate(), noindex: true });
+await emit('/preview/', { title: 'Preview', body: t.preview(), noindex: true, scripts: [assets.marked] });
 await write('/404.html', document({ path: '/404/', title: 'Not found', body: t.notFound(), categories, assets, noindex: true }));
 
 // Search index (read by /search/ in the browser)
 await write('/search-index.json', JSON.stringify(posts.map((p) => ({
-  t: p.title, tl: p.titleLang, u: p.path, e: p.excerpt, d: shortDate(p.published_at), l: p.lang,
-  c: p.category ? [p.category.name] : [], g: p.tags.map((x) => x.name), b: p.text,
+  t: p.title, tl: p.titleLang, u: p.path, e: p.excerpt, d: shortDate(p.published_at), y: p.year, l: p.lang,
+  c: p.categories.map((c) => c.name), g: p.tags.map((x) => x.name), b: p.text,
 }))));
 
 // RSS (full content, newest 20)
+// Feed readers need absolute links for images and internal pages.
+const absolutizeHtml = (html) => html.replace(/(src|href)="\/(?!\/)/g, (m, attr) => `${attr}="${config.siteUrl}/`);
 const cdata = (s) => `<![CDATA[${String(s).replace(/]]>/g, ']]]]><![CDATA[>')}]]>`;
 await write('/feed.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
@@ -112,8 +126,8 @@ ${posts[0] ? `<lastBuildDate>${new Date(posts[0].published_at).toUTCString()}</l
 <link>${absolute(p.path)}</link>
 <guid isPermaLink="true">${absolute(p.path)}</guid>
 <pubDate>${new Date(p.published_at).toUTCString()}</pubDate>
-${p.category ? `<category>${esc(p.category.name)}</category>\n` : ''}<description>${esc(p.excerpt)}</description>
-<content:encoded>${cdata((p.cover_image_url ? `<p><img src="${esc(t.ogImage(p))}" alt=""></p>` : '') + p.html)}</content:encoded>
+${p.categories.map((c) => `<category>${esc(c.name)}</category>\n`).join('')}<description>${esc(p.excerpt)}</description>
+<content:encoded>${cdata((p.cover_image_url ? `<p><img src="${esc(t.ogImage(p))}" alt=""></p>` : '') + absolutizeHtml(p.html))}</content:encoded>
 </item>`).join('\n')}
 </channel>
 </rss>
@@ -121,9 +135,9 @@ ${p.category ? `<category>${esc(p.category.name)}</category>\n` : ''}<descriptio
 
 await write('/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${sitemap.map((u) => `<url><loc>${absolute(u)}</loc></url>`).join('\n')}
+${sitemap.map((u) => `<url><loc>${absolute(u.path)}</loc>${u.lastmod ? `<lastmod>${new Date(u.lastmod).toISOString()}</lastmod>` : ''}</url>`).join('\n')}
 </urlset>
 `);
-await write('/robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${absolute('/sitemap.xml')}\n`);
+await write('/robots.txt', `User-agent: *\nAllow: /\nDisallow: /preview/\nDisallow: /moderate/\n\nSitemap: ${absolute('/sitemap.xml')}\n`);
 
 console.log(`Built ${posts.length} posts, ${categories.length} categories, ${tags.length} tags, ${sitemap.length} pages for ${config.siteUrl} in ${Date.now() - started} ms`);

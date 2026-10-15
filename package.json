@@ -11,7 +11,8 @@
     "build": "node src/build.mjs",
     "preview": "node scripts/serve.mjs",
     "dev": "node src/build.mjs && node scripts/serve.mjs",
-    "import:wordpress": "node scripts/import-wordpress.mjs"
+    "import:wordpress": "node scripts/import-wordpress.mjs",
+    "audit:wordpress": "node scripts/audit-wordpress.mjs"
   },
   "dependencies": {
     "marked": "18.0.14"

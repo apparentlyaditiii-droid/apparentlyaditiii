@@ -1,122 +1,158 @@
 import { config } from '../config.mjs';
-import { absolute, esc, longDate, shortDate, yearOf } from '../lib/format.mjs';
+import { absolute, esc, longDate, shortDate } from '../lib/format.mjs';
+import { img, shareImage } from '../lib/images.mjs';
 import { breadcrumb, newsletter } from './layout.mjs';
 
 // --- small pieces ----------------------------------------------------------
 
-const meta = (post, extra = '') =>
-  `<p class="font-sans text-[0.78rem] text-ink-3${extra}"><time datetime="${post.published_at}">${longDate(post.published_at)}</time><span aria-hidden="true"> · </span>${post.minutes} min read</p>`;
-
-const numberArt = (post, aspect = 'aspect-[4/3]') =>
-  `<div class="relative flex flex-col justify-between overflow-hidden bg-accent-soft p-5 sm:p-7 ${aspect} rounded-sm" aria-hidden="true"><span class="kicker text-accent-ink/70">${esc(post.category?.name)}</span><span class="self-end font-serif italic leading-[0.8] tracking-[-0.04em] text-accent/80 select-none" style="font-size:clamp(5rem, 16vw, 11rem);font-variation-settings:&quot;opsz&quot; 72">${post.number}</span></div>`;
-
-// Resized variants for images hosted on WordPress.com (it supports ?w=).
-function imgSrc(url, width) {
-  if (!url) return url;
-  return /wordpress\.com|wp\.com/.test(url) ? `${url.split('?')[0]}?w=${width}` : url;
-}
-function imgSrcset(url, widths) {
-  if (!/wordpress\.com|wp\.com/.test(url ?? '')) return '';
-  return ` srcset="${widths.map((w) => `${imgSrc(url, w)} ${w}w`).join(', ')}"`;
-}
-export const ogImage = (post) => (post.cover_image_url ? imgSrc(post.cover_image_url, 1200) : undefined);
-
-export function card(post, { headingLevel = 3 } = {}) {
-  const h = `h${headingLevel}`;
-  return `<article class="group flex flex-col"><a class="block" tabindex="-1" aria-hidden="true" href="${post.path}">${numberArt(post)}</a><div class="mt-4 flex items-baseline gap-3"><span class="kicker">No. ${post.number}</span>${post.category ? `<a class="kicker kicker-accent hover:underline" href="${post.category.path}">${esc(post.category.name)}</a>` : ''}</div><${h} lang="${post.titleLang}" class="mt-2 font-serif text-[1.45rem] leading-[1.15] tracking-tight"><a class="link-underline" href="${post.path}">${esc(post.title)}</a></${h}><p lang="${post.lang}" class="mt-2 line-clamp-3 font-serif text-[1.02rem] leading-relaxed text-ink-2">${esc(post.excerpt)}</p>${meta(post, ' mt-3')}</article>`;
-}
-
-function row(post) {
-  return `<article class="group grid grid-cols-[auto_1fr] gap-x-4 border-t border-rule py-6 sm:grid-cols-[5.5rem_1fr_10rem] sm:gap-x-8 sm:py-8"><div class="pt-1.5"><span class="kicker block">No. ${post.number}</span></div><div class="min-w-0">${post.category ? `<a class="kicker kicker-accent hover:underline" href="${post.category.path}">${esc(post.category.name)}</a>` : ''}<h3 lang="${post.titleLang}" class="mt-1.5 font-serif text-[1.55rem] leading-[1.15] tracking-tight sm:text-[1.9rem]"><a class="link-underline" href="${post.path}">${esc(post.title)}</a></h3><p lang="${post.lang}" class="mt-2 line-clamp-2 max-w-2xl font-serif text-[1.05rem] leading-relaxed text-ink-2">${esc(post.excerpt)}</p>${meta(post, ' mt-3 sm:hidden')}</div><div class="hidden pt-2 text-right font-sans text-[0.78rem] leading-relaxed text-ink-3 sm:block"><time datetime="${post.published_at}" class="block">${longDate(post.published_at)}</time>${post.minutes} min read</div></article>`;
-}
-
-const grid = (posts) =>
-  `<div class="mx-auto grid max-w-6xl gap-x-8 gap-y-14 px-4 pt-10 pb-6 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">${posts.map((p) => card(p)).join('')}</div>`;
+const icons = {
+  pin: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3h6l-1 6 4 4H6l4-4-1-6Z"/><path d="M12 13v8"/></svg>',
+  heart: '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.4C1.4 7.6 3.6 4 7.2 4c2 0 3.6 1.1 4.8 2.8C13.2 5.1 14.8 4 16.8 4c3.6 0 5.8 3.6 4.5 7.1-1.8 4.8-9.3 9.4-9.3 9.4Z"/></svg>',
+  comment: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/></svg>',
+};
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+export const ogImage = (post) => shareImage(post.cover_image_url);
+
+const firstLetter = (title) => [...String(title).trim()][0] ?? '❦';
+
+function cardMedia(post, { pinned, eager }) {
+  const inner = post.cover_image_url
+    ? img(post.cover_image_url, { widths: [480, 640, 828], sizes: '(min-width: 64rem) 22rem, (min-width: 40rem) 45vw, 100vw', alt: post.cover_image_alt ?? '', eager })
+    : `<span class="card-placeholder"><span class="ph-mark">❦</span><span class="ph-letter" lang="${post.titleLang}">${esc(firstLetter(post.title))}</span></span>`;
+  return `<a class="card-media" href="${post.path}" tabindex="-1" aria-hidden="true">${inner}${pinned ? `<span class="pin-badge">${icons.pin}Pinned</span>` : ''}</a>`;
+}
+
+export function card(post, { headingLevel = 3, pinned = false, eager = false } = {}) {
+  const h = `h${headingLevel}`;
+  return `<article class="card">${cardMedia(post, { pinned, eager })}<div class="card-body"><p class="card-meta">${post.category ? `<a class="card-cat" href="${post.category.path}">${esc(post.category.name)}</a><span class="sep" aria-hidden="true">/</span>` : ''}<time datetime="${post.published_at}">${shortDate(post.published_at)}</time></p><${h} lang="${post.titleLang}" class="card-title"><a href="${post.path}">${esc(post.title)}</a></${h}><p lang="${post.lang}" class="card-excerpt">${esc(post.excerpt)}</p><p class="card-foot">${post.minutes} min read</p></div></article>`;
+}
+
+const grid = (posts, opts) => `<div class="card-grid">${posts.map((p, i) => card(p, { ...opts, eager: opts?.eager && i < 3 })).join('')}</div>`;
+
+function chips(categories, active, total, label = 'Browse by category') {
+  const chip = (href, text, count, on) =>
+    `<a class="chip" href="${href}"${on ? ' aria-current="page"' : ''}>${esc(text)}${count !== undefined ? ` <span class="count">${count}</span>` : ''}</a>`;
+  return `<nav aria-label="${label}" class="chips">${chip('/archive/', 'All writing', total, active === null)}${categories.map((c) => chip(c.path, c.name, c.posts.length, active === c.slug)).join('')}</nav>`;
+}
+
+function yearNav(years, active) {
+  if (years.length < 2) return '';
+  return `<nav aria-label="Browse by year" class="year-nav"><span>By year:</span>${years.map((y) => `<a href="${y.path}"${active === y.year ? ' aria-current="page"' : ''}>${y.year}</a>`).join('')}</nav>`;
+}
+
+function aboutStrip(pages) {
+  const about = pages.about;
+  const photo = about?.image_url || config.authorPhoto;
+  return `<section aria-labelledby="about-strip-title" class="about-strip"><div class="wrap about-inner"><a href="/about/" class="portrait" tabindex="-1" aria-hidden="true">${img(photo, { widths: [480, 640], sizes: '17rem', alt: '' })}</a><div><p class="kicker kicker-accent">The person behind the words</p><h2 id="about-strip-title" class="about-title mt-3">Hello, I’m <em>Aditi.</em></h2><p class="about-text">${esc(config.authorBio)} ${esc(about?.intro && about.intro !== config.tagline ? about.intro : 'If something here stayed with you, I’d love to hear about it.')}</p><div class="about-links"><a class="btn" href="/about/">More about me</a><a href="/contact/">Write to me</a><a href="mailto:${config.email}">${config.email}</a></div></div></div></section>`;
+}
+
 // --- home ------------------------------------------------------------------
 
-export function home({ posts, categories }) {
-  const [lead, ...rest] = posts;
-  const recent = rest.slice(0, 5);
-  const picks = posts.filter((p) => p.featured).slice(0, 2);
-  const start = posts.find((p) => p.tags.some((t) => t.slug === 'start-here')) ?? posts.at(-1);
-  const since = posts.length ? yearOf(posts.at(-1).published_at) : new Date().getFullYear();
+const HOME_GRID = 9;
 
-  const leadArt = lead?.cover_image_url
-    ? `<div class="cover-lead aspect-[4/3] rounded-sm md:aspect-[5/6]"><img src="${imgSrc(lead.cover_image_url, 900)}"${imgSrcset(lead.cover_image_url, [600, 900, 1300])} sizes="(min-width: 768px) 32rem, 100vw" alt="${esc(lead.cover_image_alt ?? '')}" fetchpriority="high"><span class="cover-number" aria-hidden="true">${lead.number}</span></div>`
-    : lead && numberArt(lead, 'aspect-[4/3] md:aspect-[5/6]');
+export function home({ posts, pinned, categories, pages }) {
+  const pinnedSet = new Set(pinned);
+  const latest = posts.filter((p) => !pinnedSet.has(p)).slice(0, HOME_GRID);
+  const shown = latest.length + pinned.length;
 
-  return `<section class="mx-auto max-w-6xl px-4 pt-10 sm:px-6 sm:pt-16"><div class="flex items-end justify-between gap-6 border-b border-ink pb-5"><h1 class="max-w-3xl font-serif text-[clamp(1.6rem,4.2vw,2.75rem)] leading-[1.1] tracking-tight" style="font-weight:400">Some thoughts don’t fade. <em class="text-accent">They wait.</em></h1><p class="kicker hidden shrink-0 text-right md:block">${plural(posts.length, 'piece')}<br>since ${since}</p></div><p class="mt-4 max-w-2xl font-sans text-[0.95rem] leading-relaxed text-ink-2">${esc(config.tagline)}</p></section>
-${lead ? `<section aria-labelledby="lead-title" class="mx-auto max-w-6xl px-4 pt-10 sm:px-6 sm:pt-14"><article class="group grid gap-8 md:grid-cols-[1.15fr_1fr] md:gap-12"><a tabindex="-1" aria-hidden="true" class="order-1 md:order-2" href="${lead.path}">${leadArt}</a><div class="order-2 flex flex-col justify-center md:order-1"><p class="kicker"><span class="kicker-accent">Latest</span> · No. ${lead.number} · ${shortDate(lead.published_at)}</p><h2 id="lead-title" lang="${lead.titleLang}" class="mt-4 font-serif text-[clamp(2.4rem,6vw,4.4rem)] leading-[0.98] tracking-[-0.02em]"><a class="link-underline" href="${lead.path}">${esc(lead.title)}</a></h2><p lang="${lead.lang}" class="mt-6 max-w-lg font-serif text-[1.3rem] italic leading-snug text-ink-2">“${esc(lead.excerpt)}”</p><div class="mt-7 flex items-center gap-5"><a class="inline-flex h-11 items-center rounded-sm bg-ink px-5 font-sans text-[0.88rem] font-medium text-paper transition-colors hover:bg-accent" href="${lead.path}">Read the piece</a>${meta(lead)}</div></div></article></section>` : '<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6"><p class="font-serif text-[1.3rem] italic text-ink-2">The first piece is on its way.</p></section>'}
-${recent.length ? `<section aria-labelledby="latest" class="mx-auto max-w-6xl px-4 pt-20 sm:px-6"><div class="flex items-baseline justify-between"><h2 id="latest" class="kicker text-ink">Recent pieces</h2><a class="font-sans text-[0.85rem] text-ink-2 hover:text-accent" href="/archive/">The full archive →</a></div><div class="mt-4 border-b border-rule">${recent.map(row).join('')}</div></section>` : ''}
-${picks.length ? `<section aria-labelledby="picks" class="mx-auto max-w-6xl px-4 pt-20 sm:px-6"><h2 id="picks" class="kicker text-ink">If you read only one</h2><div class="mt-6 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:max-w-3xl">${picks.map((p) => card(p)).join('')}</div></section>` : ''}
-<section aria-labelledby="themes" class="mx-auto max-w-6xl px-4 py-20 sm:px-6"><h2 id="themes" class="kicker text-ink">Read by kind</h2><ul class="mt-6 grid gap-px overflow-hidden rounded-sm border border-rule bg-rule sm:grid-cols-2 lg:grid-cols-3">${categories.map((c) => `<li class="bg-paper"><a class="group flex h-full flex-col justify-between gap-6 p-6 transition-colors hover:bg-card sm:p-8" href="${c.path}"><div><p class="font-serif text-[1.9rem] leading-none tracking-tight group-hover:text-accent">${esc(c.name)}</p>${c.description ? `<p class="mt-3 font-sans text-[0.88rem] leading-relaxed text-ink-2">${esc(c.description)}</p>` : ''}</div><p class="kicker">${plural(c.posts.length, 'piece')} →</p></a></li>`).join('')}</ul>${start ? `<p class="mt-8 font-sans text-[0.92rem] text-ink-2">New here? Start with <a class="font-serif text-[1.1rem] italic text-accent-ink underline decoration-accent/40 underline-offset-4 hover:decoration-accent" href="${start.path}">${esc(start.title)}</a></p>` : ''}</section>
-${newsletter()}`;
+  const intro = `<section class="wrap hero"><h1 class="hero-title">Some thoughts don’t fade. <em>They wait.</em></h1><p class="hero-sub">${esc(config.tagline)}</p></section>`;
+
+  if (!posts.length) {
+    return `${intro}<section class="wrap block"><p class="empty-note">The first piece is on its way.</p></section>${aboutStrip(pages)}${newsletter()}`;
+  }
+
+  const pinnedSection = pinned.length
+    ? `<section aria-labelledby="pinned-title" class="pinned-band"><div class="wrap"><div class="section-head"><h2 id="pinned-title" class="section-title">${icons.pin}Pinned</h2><p class="section-note">If you’re new here, start with ${pinned.length === 1 ? 'this one' : 'these'}.</p></div>${grid(pinned, { pinned: true, eager: true })}</div></section>`
+    : '';
+
+  const latestSection = latest.length
+    ? `<section aria-labelledby="latest-title" class="wrap block"><div class="section-head"><h2 id="latest-title" class="section-title">Latest writing</h2>${chips(categories, undefined, posts.length)}</div>${grid(latest, { eager: !pinned.length })}${posts.length > shown ? `<a class="more-link" href="/archive/">See all ${plural(posts.length, 'piece')} in the archive →</a>` : `<a class="more-link" href="/archive/">Browse the archive by category and year →</a>`}</section>`
+    : '';
+
+  return `${intro}${pinned.length ? pinnedSection : '<div class="hero-rule wrap" aria-hidden="true"></div>'}${latestSection}${aboutStrip(pages)}${newsletter()}`;
 }
 
-// --- archive / category / tag ---------------------------------------------
+// --- archive / year / category / tag --------------------------------------
 
-function filters(categories, active, total) {
-  const pill = (href, label, count, on) =>
-    `<li class="shrink-0"><a class="inline-flex h-9 items-center rounded-full border px-4 transition-colors ${on ? 'border-ink bg-ink text-paper' : 'border-rule text-ink-2 hover:border-ink'}" href="${href}"${on ? ' aria-current="page"' : ''}>${esc(label)}${count !== undefined ? ` <span class="ml-1.5 opacity-60">${count}</span>` : ''}</a></li>`;
-  return `<nav aria-label="Filter by kind" class="mx-auto mt-10 max-w-6xl px-4 sm:px-6"><ul class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 font-sans text-[0.85rem] sm:mx-0 sm:flex-wrap sm:px-0">${pill('/archive/', 'Everything', total, active === null)}${categories.map((c) => pill(c.path, c.name, c.posts.length, active === c.slug)).join('')}${pill('/search/', 'Search…')}</ul></nav>`;
+function listHeader(crumbs, kicker, title, lede) {
+  return `<header class="wrap page-head">${breadcrumb(crumbs)}<p class="kicker kicker-accent mt-10">${esc(kicker)}</p><h1 class="page-title" style="margin-top:.75rem">${esc(title)}</h1>${lede ? `<p class="page-lede">${lede}</p>` : ''}</header>`;
 }
 
-export function archive({ posts, categories }) {
+export function archive({ posts, categories, years }) {
   const names = categories.map((c) => c.name.toLowerCase());
   const kinds = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join('');
-  return `<header class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-12">${breadcrumb([['/archive/', 'Writing']])}<p class="kicker kicker-accent mt-10">The archive</p><h1 class="mt-3 font-serif text-[clamp(2.6rem,7vw,5rem)] leading-[0.95] tracking-[-0.02em]">Everything, so far</h1><p class="mt-5 max-w-2xl font-serif text-[1.2rem] leading-relaxed text-ink-2">${plural(posts.length, 'piece')}${kinds ? `: ${esc(kinds)}` : ''}, newest first.</p></header>
-${filters(categories, null, posts.length)}
-${grid(posts)}`;
+  return `${listHeader([['/archive/', 'Writing']], 'The archive', 'Everything, so far', `${plural(posts.length, 'piece')}${kinds ? `: ${esc(kinds)}` : ''}, newest first.`)}
+<div class="wrap" style="margin-top:2rem;display:grid;gap:1rem">${chips(categories, null, posts.length)}${yearNav(years)}</div>
+<div class="wrap block">${posts.length ? years.map((y) => `<section class="year-block" aria-labelledby="y${y.year}"><div class="year-head"><h2 id="y${y.year}"><a href="${y.path}">${y.year}</a></h2><p>${plural(y.posts.length, 'piece')}</p></div>${grid(y.posts)}</section>`).join('') : '<p class="empty-note">Nothing here yet.</p>'}</div>`;
+}
+
+export function archiveYear({ year: y, years, categories, total }) {
+  return `${listHeader([['/archive/', 'Writing'], [y.path, y.year]], 'The archive', `Written in ${y.year}`, `${plural(y.posts.length, 'piece')}, newest first.`)}
+<div class="wrap" style="margin-top:2rem;display:grid;gap:1rem">${chips(categories, undefined, total)}${yearNav(years, y.year)}</div>
+<div class="wrap block">${grid(y.posts)}</div>`;
 }
 
 export function category({ category: c, categories, total }) {
-  return `<header class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-12">${breadcrumb([['/archive/', 'Writing'], [c.path, c.name]])}<p class="kicker kicker-accent mt-10">Kind</p><h1 class="mt-3 font-serif text-[clamp(2.6rem,7vw,5rem)] leading-[0.95] tracking-[-0.02em]">${esc(c.name)}</h1>${c.description ? `<p class="mt-5 max-w-2xl font-serif text-[1.2rem] leading-relaxed text-ink-2">${esc(c.description)}</p>` : ''}</header>
-${filters(categories, c.slug, total)}
-${c.posts.length ? grid(c.posts) : '<p class="mx-auto max-w-6xl px-4 pt-10 pb-6 font-serif text-[1.2rem] italic text-ink-2 sm:px-6">Nothing here yet.</p>'}`;
+  return `${listHeader([['/archive/', 'Writing'], [c.path, c.name]], 'Category', c.name, c.description ? esc(c.description) : '')}
+<div class="wrap" style="margin-top:2rem">${chips(categories, c.slug, total)}</div>
+<div class="wrap block">${c.posts.length ? grid(c.posts) : '<p class="empty-note">Nothing here yet.</p>'}</div>`;
 }
 
 export function tag({ tag: t }) {
-  return `<header class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-12">${breadcrumb([['/archive/', 'Writing'], [t.path, `#${t.name}`]])}<p class="kicker kicker-accent mt-10">Tag</p><h1 class="mt-3 font-serif text-[clamp(2.6rem,7vw,5rem)] leading-[0.95] tracking-[-0.02em]">#${esc(t.name)}</h1><p class="mt-5 max-w-2xl font-serif text-[1.2rem] leading-relaxed text-ink-2">${plural(t.posts.length, 'piece')} tagged “${esc(t.name)}”.</p></header>
-${grid(t.posts)}`;
+  return `${listHeader([['/archive/', 'Writing'], [t.path, `#${t.name}`]], 'Tag', `#${t.name}`, `${plural(t.posts.length, 'piece')} tagged “${esc(t.name)}”.`)}
+<div class="wrap block">${grid(t.posts)}</div>`;
 }
 
 // --- a single piece --------------------------------------------------------
+
+function comments(p) {
+  const form = `<form class="comment-form" data-comment-form novalidate><p class="kicker">Leave a comment</p><div class="row"><div class="field-group"><label for="cm-name">Name</label><input id="cm-name" class="field" name="name" required maxlength="80" autocomplete="name"></div><div class="field-group"><label for="cm-email">Email <span class="text-ink-3">(never shown)</span></label><input id="cm-email" class="field" type="email" name="email" required maxlength="254" autocomplete="email" inputmode="email"></div></div><div class="field-group"><label for="cm-body">Comment</label><textarea id="cm-body" class="field" name="body" required maxlength="3000" rows="5"></textarea></div><div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div><div class="form-actions"><button class="btn" type="submit">Post comment</button><p class="form-status" role="status" aria-live="polite"></p></div><p class="hint">Comments are read before they appear here. Your email is only for me, in case I want to reply.</p></form>`;
+  return `<section id="comments" class="comments no-print" aria-labelledby="comments-title" data-comments="${p.id}"><h2 id="comments-title">Comments <span data-comment-count></span></h2><div class="comment-list" data-comment-list><p class="comments-empty">${p.comments_enabled ? 'No comments yet.' : ''}</p></div>${p.comments_enabled ? form : '<p class="comments-empty">Comments are closed for this piece.</p>'}</section>`;
+}
 
 export function post({ post: p, posts }) {
   const i = posts.indexOf(p);
   const newer = posts[i - 1];
   const older = posts[i + 1];
+  const shares = (o) => o.categories.some((c) => p.categories.includes(c));
   const related = [
-    ...posts.filter((o) => o !== p && o.category === p.category),
-    ...posts.filter((o) => o !== p && o.category !== p.category),
+    ...posts.filter((o) => o !== p && shares(o)),
+    ...posts.filter((o) => o !== p && !shares(o)),
   ].slice(0, 3);
   const url = absolute(p.path);
   const shareText = encodeURIComponent(p.title);
   const shareUrl = encodeURIComponent(url);
-  const pillCls = 'rounded-full border border-rule px-3 py-1.5 text-ink-2 transition-colors hover:border-ink hover:text-ink';
   const verse = p.category?.verse ? ' verse' : '';
   const crumbs = [['/archive/', 'Writing'], ...(p.category ? [[p.category.path, p.category.name]] : []), [p.path, p.title]];
+  const catList = p.categories.map((c) => `<a href="${c.path}">${esc(c.name)}</a>`).join('<span class="sep" aria-hidden="true"> · </span>');
 
   const cover = p.cover_image_url
-    ? `<figure class="cover mx-auto mt-10 max-w-[44rem]"><img src="${imgSrc(p.cover_image_url, 1200)}"${imgSrcset(p.cover_image_url, [700, 1200, 1600])} sizes="(min-width: 44rem) 44rem, 100vw" alt="${esc(p.cover_image_alt ?? '')}" fetchpriority="high"></figure>`
+    ? `<figure class="cover mx-auto mt-10 max-w-[44rem]">${img(p.cover_image_url, { widths: [640, 1080, 1600], sizes: '(min-width: 44rem) 44rem, 100vw', alt: p.cover_image_alt ?? '', eager: true })}</figure>`
     : '';
 
   const navLink = (o, label, right) => o
     ? `<a class="group bg-paper p-5 hover:bg-card${right ? ' sm:text-right' : ''}" href="${o.path}"><p class="kicker">${label}</p><p lang="${o.titleLang}" class="mt-2 font-serif text-lg leading-snug group-hover:text-accent">${esc(o.title)}</p></a>`
     : '<span class="hidden bg-paper sm:block"></span>';
 
-  return `<div class="progress fixed inset-x-0 top-0 z-40 h-[2px] bg-accent" aria-hidden="true" style="--p: 0;"></div><article class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-12"><div class="mx-auto max-w-[44rem]">${breadcrumb(crumbs)}<header class="mt-10 text-center"><p class="kicker">${p.category ? `<a class="kicker-accent hover:underline" href="${p.category.path}">${esc(p.category.name)}</a> · ` : ''}No. ${p.number}</p><h1 lang="${p.titleLang}" class="mt-4 font-serif text-[clamp(2.4rem,7vw,4.25rem)] leading-[1] tracking-[-0.02em] text-balance">${esc(p.title)}</h1><div class="mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-rule py-4 font-sans text-[0.82rem] text-ink-2 justify-center"><span>By <a class="font-medium text-ink hover:text-accent" href="/about/">${esc(config.author)}</a></span><span aria-hidden="true" class="text-ink-3">·</span><time datetime="${p.published_at}">${longDate(p.published_at)}</time><span aria-hidden="true" class="text-ink-3">·</span><span>${p.minutes} min read</span></div></header></div>${cover}<div class="mx-auto mt-12 max-w-[40rem]"><div id="article-body" lang="${p.lang}" class="prose-article${verse}">${p.html}</div><p class="mt-12 text-center font-serif text-xl text-accent" aria-hidden="true">❦</p>${p.tags.length ? `<ul class="mt-10 flex flex-wrap gap-2 font-sans text-[0.8rem]" aria-label="Tags">${p.tags.map((t) => `<li><a class="inline-block rounded-full bg-paper-2 px-3 py-1.5 text-ink-2 hover:bg-accent-soft hover:text-accent-ink" href="/tag/${t.slug}/">#${esc(t.name)}</a></li>`).join('')}</ul>` : ''}<div class="mt-8 border-t border-rule pt-6"><div class="no-print flex flex-wrap items-center gap-2 font-sans text-[0.8rem]"><button type="button" class="heart-btn" data-heart="${esc(p.slug)}" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.4C1.4 7.6 3.6 4 7.2 4c2 0 3.6 1.1 4.8 2.8C13.2 5.1 14.8 4 16.8 4c3.6 0 5.8 3.6 4.5 7.1-1.8 4.8-9.3 9.4-9.3 9.4Z"/></svg><span data-heart-label>Heart this</span></button><span class="kicker ml-2 mr-1">Share</span><a href="https://wa.me/?text=${shareText}%20${shareUrl}" target="_blank" rel="noopener noreferrer" class="${pillCls}">WhatsApp</a><a href="https://x.com/intent/post?text=${shareText}&amp;url=${shareUrl}" target="_blank" rel="noopener noreferrer" class="${pillCls}">X</a><a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" target="_blank" rel="noopener noreferrer" class="${pillCls}">Facebook</a><a href="https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}" target="_blank" rel="noopener noreferrer" class="${pillCls}">LinkedIn</a><button type="button" class="${pillCls}" aria-live="polite" data-copy-link>Copy link</button></div></div><aside class="mt-10 flex gap-5 rounded-sm border border-rule bg-card p-6" aria-label="About the author"><div><p class="kicker">Written by</p><p class="mt-1 font-serif text-xl">${esc(config.author)}</p><p class="mt-1.5 font-sans text-[0.88rem] leading-relaxed text-ink-2">${esc(config.authorBio)}</p><a class="mt-3 inline-block font-sans text-[0.82rem] text-accent-ink hover:underline" href="/about/">More about me →</a></div></aside><nav aria-label="More pieces" class="mt-14 grid gap-px overflow-hidden rounded-sm border border-rule bg-rule sm:grid-cols-2">${navLink(older, '← Previous')}${navLink(newer, 'Next →', true)}</nav></div></article>
-${related.length ? `<section aria-labelledby="related" class="mx-auto mt-20 max-w-6xl px-4 pb-20 sm:px-6"><h2 id="related" class="kicker border-t border-ink pt-4 text-ink">Keep reading</h2><div class="mt-8 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">${related.map((o) => card(o)).join('')}</div></section>` : ''}
+  const back = p.category
+    ? `<a class="back-link" href="${p.category.path}">← More ${esc(p.category.name.toLowerCase())}</a><a class="back-link" href="/archive/">The full archive</a>`
+    : '<a class="back-link" href="/archive/">← The full archive</a>';
+
+  return `<div class="progress fixed inset-x-0 top-0 z-40 h-[2px] bg-accent" aria-hidden="true" style="--p: 0;"></div><article class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-12"><div class="mx-auto max-w-[44rem]">${breadcrumb(crumbs)}<header class="mt-10 text-center"><p class="kicker cat-list">${catList}</p><h1 lang="${p.titleLang}" class="mt-4 font-serif text-[clamp(2.4rem,7vw,4.25rem)] leading-[1] tracking-[-0.02em] text-balance">${esc(p.title)}</h1><div class="mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-rule py-4 font-sans text-[0.82rem] text-ink-2 justify-center"><span>By <a class="font-medium text-ink hover:text-accent" href="/about/">${esc(config.author)}</a></span><span aria-hidden="true" class="text-ink-3">·</span><time datetime="${p.published_at}">${longDate(p.published_at)}</time><span aria-hidden="true" class="text-ink-3">·</span><span>${p.minutes} min read</span></div></header></div>${cover}<div class="mx-auto mt-12 max-w-[40rem]"><div id="article-body" lang="${p.lang}" class="prose-article${verse}">${p.html}</div><p class="mt-12 text-center font-serif text-xl text-accent" aria-hidden="true">❦</p>${p.tags.length ? `<ul class="mt-10 flex flex-wrap gap-2 font-sans text-[0.8rem]" aria-label="Tags">${p.tags.map((t) => `<li><a class="inline-block rounded-full bg-paper-2 px-3 py-1.5 text-ink-2 hover:bg-accent-soft hover:text-accent-ink" href="/tag/${t.slug}/">#${esc(t.name)}</a></li>`).join('')}</ul>` : ''}<div class="mt-8 border-t border-rule pt-6"><div class="no-print reader-actions"><button type="button" class="heart-btn" data-like="${esc(p.slug)}" aria-pressed="false">${icons.heart}<span data-like-label>Like</span></button><a class="pill" href="#comments">${icons.comment}<span data-comment-pill>Comment</span></a><span class="sep" aria-hidden="true"></span><span class="kicker mr-1">Share</span><button type="button" class="pill" data-native-share hidden>Share…</button><a href="https://wa.me/?text=${shareText}%20${shareUrl}" target="_blank" rel="noopener noreferrer" class="pill">WhatsApp</a><a href="https://x.com/intent/post?text=${shareText}&amp;url=${shareUrl}" target="_blank" rel="noopener noreferrer" class="pill">X</a><a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" target="_blank" rel="noopener noreferrer" class="pill">Facebook</a><button type="button" class="pill" aria-live="polite" data-copy-link>Copy link</button></div></div>${comments(p)}<aside class="mt-14 flex items-center gap-5 rounded-sm border border-rule bg-card p-6" aria-label="About the author">${img(config.authorPhoto, { widths: [320], sizes: '4.5rem', alt: '', cls: 'author-thumb' })}<div><p class="kicker">Written by</p><p class="mt-1 font-serif text-xl">${esc(config.author)}</p><p class="mt-1.5 font-sans text-[0.88rem] leading-relaxed text-ink-2">${esc(config.authorBio)}</p><a class="mt-3 inline-block font-sans text-[0.82rem] text-accent-ink hover:underline" href="/about/">More about me →</a></div></aside><nav aria-label="More pieces" class="mt-14 grid gap-px overflow-hidden rounded-sm border border-rule bg-rule sm:grid-cols-2">${navLink(older, '← Previous')}${navLink(newer, 'Next →', true)}</nav><p class="mt-8 flex flex-wrap justify-between gap-4">${back}</p></div></article>
+${related.length ? `<section aria-labelledby="related" class="wrap" style="margin-top:5rem;padding-bottom:5rem"><div class="section-head" style="border-top:1px solid var(--ink);padding-top:1rem"><h2 id="related" class="section-title">Keep reading</h2></div>${grid(related)}</section>` : ''}
 ${newsletter()}`;
 }
 
 // --- simple pages ------------------------------------------------------------
 
 export function page({ page: pg, path, after = '' }) {
-  return `<article class="mx-auto max-w-[44rem] px-4 pb-24 pt-8 sm:px-6 sm:pt-12">${breadcrumb([[path, pg.title]])}${pg.kicker ? `<p class="kicker kicker-accent mt-10">${esc(pg.kicker)}</p>` : ''}<h1 class="mt-3 font-serif text-[clamp(2.6rem,7vw,4.5rem)] leading-[0.98] tracking-[-0.02em]">${esc(pg.title)}</h1>${pg.intro ? `<p class="mt-6 font-serif text-[1.3rem] italic leading-snug text-ink-2">${esc(pg.intro)}</p>` : ''}<div class="mt-10 border-t border-rule pt-10"><div class="prose-article">${pg.html}</div></div>${after}</article>`;
+  const photo = pg.slug === 'about' ? (pg.image_url || config.authorPhoto) : pg.image_url;
+  const figure = photo
+    ? `<figure class="about-page-photo portrait">${img(photo, { widths: [480, 640], sizes: '15rem', alt: pg.image_alt || (pg.slug === 'about' ? config.authorPhotoAlt : ''), eager: true })}</figure>`
+    : '';
+  return `<article class="mx-auto max-w-[44rem] px-4 pb-24 pt-8 sm:px-6 sm:pt-12">${breadcrumb([[path, pg.title]])}${pg.kicker ? `<p class="kicker kicker-accent mt-10">${esc(pg.kicker)}</p>` : ''}<h1 class="mt-3 font-serif text-[clamp(2.6rem,7vw,4.5rem)] leading-[0.98] tracking-[-0.02em]">${esc(pg.title)}</h1>${pg.intro ? `<p class="mt-6 font-serif text-[1.3rem] italic leading-snug text-ink-2">${esc(pg.intro)}</p>` : ''}<div class="mt-10 border-t border-rule pt-10">${figure}<div class="prose-article">${pg.html}</div><div style="clear:both"></div></div>${after}</article>`;
 }
 
 export function contact() {
@@ -131,10 +167,27 @@ export function contact() {
 <div class="prose-article mt-12 text-[1.05rem]"><p>Prefer email? Write to <a href="mailto:${config.email}">${config.email}</a>. I read everything, even if replies take a while.</p><p>For collaborations, features or permission to reproduce a piece, mention it in the subject line so it doesn’t get lost.</p></div></div></article>`;
 }
 
-export function search({ total }) {
-  return `<div class="mx-auto max-w-3xl px-4 pb-24 pt-12 sm:px-6 sm:pt-20"><h1 class="kicker kicker-accent mb-6">Search</h1><form role="search" action="/search/" data-search><label for="q" class="sr-only">Search the archive</label><input id="q" name="q" placeholder="A word, a feeling, a title…" class="w-full border-0 border-b-2 border-ink bg-transparent pb-3 font-serif text-[clamp(1.8rem,5vw,3rem)] italic tracking-tight text-ink placeholder:text-ink-3 focus:outline-none" type="search" autocomplete="off"></form><p class="mt-4 font-sans text-[0.82rem] text-ink-3" aria-live="polite" data-search-status>Searching ${plural(total, 'piece')}, in English and हिंदी.</p><ul class="mt-6" data-search-results></ul></div>`;
+export function search({ total, categories }) {
+  return `<div class="mx-auto max-w-3xl px-4 pb-24 pt-12 sm:px-6 sm:pt-20"><h1 class="kicker kicker-accent mb-6">Search</h1><form role="search" action="/search/" data-search><label for="q" class="sr-only">Search titles and full text</label><input id="q" name="q" placeholder="A word, a feeling, a title…" class="w-full border-0 border-b-2 border-ink bg-transparent pb-3 font-serif text-[clamp(1.8rem,5vw,3rem)] italic tracking-tight text-ink placeholder:text-ink-3 focus:outline-none" type="search" autocomplete="off"></form><p class="mt-4 font-sans text-[0.82rem] text-ink-3" aria-live="polite" data-search-status>Searching titles and full text of ${plural(total, 'piece')}, in English and हिंदी.</p><ul class="mt-6" data-search-results></ul><div class="search-empty" data-search-empty hidden><p><strong>Nothing matched “<span data-search-term></span>”.</strong> Try a single word, a shorter phrase, or another spelling (Hinglish words are often spelt more than one way).</p><p class="mt-3">Or browse instead: <a href="/archive/">the full archive</a>${categories.map((c) => `, <a href="${c.path}">${esc(c.name)}</a>`).join('')}.</p></div><noscript><p class="search-empty">Search needs JavaScript. You can still browse <a href="/archive/">the full archive</a>.</p></noscript></div>`;
 }
 
 export function notFound() {
   return `<div class="mx-auto max-w-3xl px-4 py-28 text-center sm:px-6"><p class="kicker kicker-accent">404</p><h1 class="mt-4 font-serif text-[clamp(2.4rem,7vw,4.5rem)] leading-none tracking-tight">Apparently, <em>this page wandered off.</em></h1><p class="mx-auto mt-6 max-w-md font-sans text-[0.95rem] text-ink-2">It may have moved, or never existed. Everything that does exist is in the archive.</p><div class="mt-8 flex justify-center gap-3 font-sans text-[0.9rem]"><a class="inline-flex h-11 items-center rounded-sm bg-ink px-5 text-paper hover:bg-accent" href="/archive/">Browse the archive</a><a class="inline-flex h-11 items-center rounded-sm border border-rule px-5 hover:border-ink" href="/search/">Search</a></div></div>`;
 }
+
+// --- pages driven by a link in an email (filled in by app.js) --------------
+
+const statusPage = (attr, kicker, title, text, actions = '<a class="btn" href="/">Back to the writing</a>') =>
+  `<div class="wrap"><div class="status-card" ${attr}><p class="kicker kicker-accent">${kicker}</p><h1 class="mt-4" data-status-title>${title}</h1><p data-status-text>${text}</p><div data-status-extra></div><div class="actions" data-status-actions>${actions}</div></div></div>`;
+
+export const confirmSubscription = () =>
+  statusPage('data-confirm', 'Newsletter', 'Confirming…', 'One moment.');
+
+export const unsubscribe = () =>
+  statusPage('data-unsubscribe', 'Newsletter', 'Unsubscribing…', 'One moment.');
+
+export const moderate = () =>
+  statusPage('data-moderate', 'Comment', 'Loading the comment…', 'One moment.', '');
+
+export const preview = () =>
+  `<div class="preview-banner" data-preview-banner>Private preview. This page isn’t public and isn’t indexed.</div><div data-preview><div class="wrap"><div class="status-card"><h1>Loading preview…</h1></div></div></div>`;

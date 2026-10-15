@@ -6,22 +6,170 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": true,
+  "images": {
+    "sizes": [
+      320,
+      480,
+      640,
+      828,
+      1080,
+      1280,
+      1600
+    ],
+    "qualities": [
+      75
+    ],
+    "formats": [
+      "image/avif",
+      "image/webp"
+    ],
+    "minimumCacheTTL": 2678400,
+    "localPatterns": [
+      {
+        "pathname": "^/(media|images)/.*$",
+        "search": ""
+      }
+    ],
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "kpawyicwisdgthdpwooz.supabase.co",
+        "pathname": "^/storage/v1/object/public/media/.*$"
+      }
+    ]
+  },
+  "redirects": [
+    {
+      "source": "/2026/01/20/%e0%a4%aa%e0%a5%8d%e0%a4%af%e0%a4%be%e0%a4%b0/",
+      "destination": "/2026/01/20/pyaar/",
+      "permanent": true
+    },
+    {
+      "source": "/2026/01/20/%E0%A4%AA%E0%A5%8D%E0%A4%AF%E0%A4%BE%E0%A4%B0/",
+      "destination": "/2026/01/20/pyaar/",
+      "permanent": true
+    },
+    {
+      "source": "/2026/01/20/प्यार/",
+      "destination": "/2026/01/20/pyaar/",
+      "permanent": true
+    },
+    {
+      "source": "/:year(\\d{4})/",
+      "destination": "/archive/:year/",
+      "permanent": true
+    },
+    {
+      "source": "/:year(\\d{4})/:month(\\d{2})/",
+      "destination": "/archive/:year/",
+      "permanent": true
+    },
+    {
+      "source": "/:year(\\d{4})/:month(\\d{2})/:day(\\d{2})/",
+      "destination": "/archive/:year/",
+      "permanent": true
+    },
+    {
+      "source": "/category/uncategorized/",
+      "destination": "/archive/",
+      "permanent": true
+    },
+    {
+      "source": "/page/:n(\\d+)/",
+      "destination": "/archive/",
+      "permanent": true
+    },
+    {
+      "source": "/author/:name/",
+      "destination": "/about/",
+      "permanent": true
+    },
+    {
+      "source": "/feed/",
+      "destination": "/feed.xml",
+      "permanent": true
+    },
+    {
+      "source": "/comments/feed/",
+      "destination": "/feed.xml",
+      "permanent": true
+    },
+    {
+      "source": "/:year(\\d{4})/:month(\\d{2})/:day(\\d{2})/:slug/feed/",
+      "destination": "/:year/:month/:day/:slug/",
+      "permanent": true
+    },
+    {
+      "source": "/:year(\\d{4})/:month(\\d{2})/:day(\\d{2})/:slug/amp/",
+      "destination": "/:year/:month/:day/:slug/",
+      "permanent": true
+    },
+    {
+      "source": "/wp-content/uploads/:path*",
+      "destination": "/media/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
       "source": "/fonts/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(media|images)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
+        }
+      ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/(preview|moderate|subscribe|unsubscribe)/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
       ]
     }
   ]
