@@ -1,16 +1,16 @@
 -- The writing desk (/write/): Aditi signs in and writes, edits, publishes,
 -- uploads images and moderates comments from the site itself.
 --
--- Only confirmed accounts whose email is in private.editors can change
--- anything. Add someone with:
---   insert into private.editors (email) values ('someone@example.com');
+-- Editors are bound to their account id, not an email address, so nobody can
+-- gain access by signing up with an editor's email. After creating someone's
+-- login (Authentication → Users → Add user), make them an editor with:
+--   insert into private.editors (user_id)
+--   select id from auth.users where email = 'aditi.sharmaa333@gmail.com';
 
 create table if not exists private.editors (
-  email text primary key check (email = lower(email))
+  user_id  uuid primary key references auth.users (id) on delete cascade,
+  added_at timestamptz not null default now()
 );
-
-insert into private.editors (email) values ('aditi.sharmaa333@gmail.com')
-on conflict do nothing;
 
 create or replace function public.is_editor()
 returns boolean
@@ -19,12 +19,8 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1
-    from auth.users u
-    join private.editors e on e.email = lower(u.email)
-    where u.id = auth.uid() and u.email_confirmed_at is not null
-  );
+  select auth.uid() is not null
+     and exists (select 1 from private.editors e where e.user_id = auth.uid());
 $$;
 
 revoke execute on function public.is_editor() from public;
@@ -34,7 +30,28 @@ grant execute on function public.is_editor() to anon, authenticated;
 -- Posts: editors see and change everything (drafts included)
 -- ---------------------------------------------------------------------------
 
-grant select, insert, update, delete on table public.posts to authenticated;
+-- Writes are table-level (RLS decides who); reads stay column-level so the
+-- preview token is never readable, even by signed-in non-editors.
+grant insert, update, delete on table public.posts to authenticated;
+grant select (notify_subscribers, announced_at) on table public.posts to authenticated;
+
+create or replace function public.editor_preview_token(p_id bigint)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_editor() then
+    raise exception 'Not allowed' using errcode = '42501';
+  end if;
+  return (select preview_token from public.posts where id = p_id);
+end;
+$$;
+
+revoke execute on function public.editor_preview_token(bigint) from public, anon;
+grant execute on function public.editor_preview_token(bigint) to authenticated;
 
 drop policy if exists "Editors read all posts" on public.posts;
 create policy "Editors read all posts"

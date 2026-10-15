@@ -22,7 +22,7 @@ Whenever a post, page or category changes in Supabase, a database trigger calls 
 
 Writing is also kept on her device as she types, so nothing is lost if the tab closes before saving.
 
-Setting up her login (once): Supabase dashboard → **Authentication → Users → Add user → Create new user**, with her email (`aditi.sharmaa333@gmail.com`), a password, and **Auto Confirm User** ticked. Only emails listed in `private.editors` can change anything. Also turn off **Authentication → Sign In / Providers → Allow new users to sign up**, since nobody else needs an account.
+Setting up her login (once): Supabase dashboard → **Authentication → Users → Add user → Create new user**, with her email (`aditi.sharmaa333@gmail.com`), a password, and **Auto Confirm User** ticked. Then make that account an editor (SQL Editor): `insert into private.editors (user_id) select id from auth.users where email = 'aditi.sharmaa333@gmail.com';` Only accounts in `private.editors` can change anything. Also turn off **Authentication → Sign In / Providers → Allow new users to sign up**, since nobody else needs an account.
 
 **By hand, in the dashboard** (what the desk does under the hood):
 

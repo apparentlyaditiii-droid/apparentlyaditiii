@@ -10,6 +10,9 @@
   var meta = function (n) { var m = document.querySelector('meta[name="' + n + '"]'); return m ? m.content : ''; };
   var sb = window.supabase.createClient(meta('supabase-url'), meta('supabase-key'));
   var TZ = 'Asia/Kolkata';
+  // Everything an editor reads back (the preview token comes from editor_preview_token).
+  var COLS = 'id,slug,title,excerpt,content,content_format,category_slug,extra_categories,lang,cover_image_url,cover_image_alt,' +
+    'pinned_order,comments_enabled,notify_subscribers,status,published_at,updated_at';
   var $ = function (sel, root) { return (root || desk).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || desk).querySelectorAll(sel)); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -200,7 +203,7 @@
     post = null;
     dirty = false;
     if (id) {
-      var res = await sb.from('posts').select('*').eq('id', id).single();
+      var res = await sb.from('posts').select(COLS).eq('id', id).single();
       if (res.error) { toast(friendly(res.error), 'error'); openHome(); return; }
       post = res.data;
       history.replaceState(null, '', '#edit/' + id);
@@ -398,8 +401,8 @@
     buttons.forEach(function (b) { b.disabled = true; });
     var wasLive = post && post.status === 'published';
     var res = post
-      ? await sb.from('posts').update(row).eq('id', post.id).select('*').single()
-      : await sb.from('posts').insert(row).select('*').single();
+      ? await sb.from('posts').update(row).eq('id', post.id).select(COLS).single()
+      : await sb.from('posts').insert(row).select(COLS).single();
     buttons.forEach(function (b) { b.disabled = false; });
     if (res.error) { toast(friendly(res.error), 'error'); return; }
     var oldKey = backupKey();
@@ -419,9 +422,11 @@
   $('[data-primary]').addEventListener('click', function () { save('published'); });
   $('[data-secondary]').addEventListener('click', function () { save('draft'); });
 
-  $('[data-preview-link]').addEventListener('click', function () {
+  $('[data-preview-link]').addEventListener('click', async function () {
     if (!post) return;
-    var url = location.origin + '/preview/#' + post.preview_token;
+    var res = await sb.rpc('editor_preview_token', { p_id: post.id });
+    if (res.error || !res.data) { toast(friendly(res.error), 'error'); return; }
+    var url = location.origin + '/preview/#' + res.data;
     var done = function () { toast('Private preview link copied. Anyone with it can read this piece.'); };
     try { navigator.clipboard.writeText(url).then(done, function () { prompt('Copy this link:', url); }); } catch (e) { prompt('Copy this link:', url); }
   });
