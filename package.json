@@ -15,6 +15,7 @@
     "audit:wordpress": "node scripts/audit-wordpress.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
     "marked": "18.0.14"
   }
 }

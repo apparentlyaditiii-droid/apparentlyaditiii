@@ -13,6 +13,19 @@ Whenever a post, page or category changes in Supabase, a database trigger calls 
 
 ## Writing a new piece
 
+**The easy way: the writing desk.** Aditi goes to <https://apparentlyaditiii.vercel.app/write/> and signs in. From there she can:
+- write and edit pieces, with a live preview
+- drop in a cover image, or images inside the piece (big phone photos are shrunk automatically)
+- pick categories, write the excerpt, pin pieces, set or schedule the date
+- save drafts, publish, unpublish, copy a private preview link
+- approve, reject or delete comments (Comments tab)
+
+Writing is also kept on her device as she types, so nothing is lost if the tab closes before saving.
+
+Setting up her login (once): Supabase dashboard → **Authentication → Users → Add user → Create new user**, with her email (`aditi.sharmaa333@gmail.com`), a password, and **Auto Confirm User** ticked. Only emails listed in `private.editors` can change anything. Also turn off **Authentication → Sign In / Providers → Allow new users to sign up**, since nobody else needs an account.
+
+**By hand, in the dashboard** (what the desk does under the hood):
+
 1. Open the Supabase dashboard → **Table Editor** → **posts** → **Insert row**.
 2. Fill in:
    | Column | What to put |

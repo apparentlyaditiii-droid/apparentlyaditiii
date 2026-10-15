@@ -41,6 +41,10 @@ const assets = {
   js: await hashedAsset(['client/app.js'], 'app', 'js'),
   // Only the private preview page renders Markdown in the browser.
   marked: await hashedAsset(['../node_modules/marked/lib/marked.umd.js'], 'marked', 'js'),
+  // The writing desk (/write/) only.
+  supabase: await hashedAsset(['../node_modules/@supabase/supabase-js/dist/umd/supabase.js'], 'supabase', 'js'),
+  write: await hashedAsset(['client/write.js'], 'write', 'js'),
+  deskCss: await hashedAsset(['styles/desk.css'], 'desk', 'css'),
 };
 
 const render = (urlPath, opts) => write(urlPath, document({ path: urlPath, categories, assets, ...opts }));
@@ -100,6 +104,7 @@ await emit('/search/', { title: 'Search', body: t.search({ total: posts.length, 
 await emit('/subscribe/confirm/', { title: 'Confirm your subscription', body: t.confirmSubscription(), noindex: true });
 await emit('/unsubscribe/', { title: 'Unsubscribe', body: t.unsubscribe(), noindex: true });
 await emit('/moderate/', { title: 'Review a comment', body: t.moderate(), noindex: true });
+await emit('/write/', { title: 'Writing desk', body: t.write({ categories }), noindex: true, styles: [assets.deskCss], scripts: [assets.marked, assets.supabase, assets.write] });
 await emit('/preview/', { title: 'Preview', body: t.preview(), noindex: true, scripts: [assets.marked] });
 await write('/404.html', document({ path: '/404/', title: 'Not found', body: t.notFound(), categories, assets, noindex: true }));
 
@@ -138,6 +143,6 @@ await write('/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>
 ${sitemap.map((u) => `<url><loc>${absolute(u.path)}</loc>${u.lastmod ? `<lastmod>${new Date(u.lastmod).toISOString()}</lastmod>` : ''}</url>`).join('\n')}
 </urlset>
 `);
-await write('/robots.txt', `User-agent: *\nAllow: /\nDisallow: /preview/\nDisallow: /moderate/\n\nSitemap: ${absolute('/sitemap.xml')}\n`);
+await write('/robots.txt', `User-agent: *\nAllow: /\nDisallow: /preview/\nDisallow: /moderate/\nDisallow: /write/\n\nSitemap: ${absolute('/sitemap.xml')}\n`);
 
 console.log(`Built ${posts.length} posts, ${categories.length} categories, ${tags.length} tags, ${sitemap.length} pages for ${config.siteUrl} in ${Date.now() - started} ms`);

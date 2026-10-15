@@ -40,7 +40,7 @@ export function breadcrumb(items) {
   }).join('')}</ol></nav>`;
 }
 
-export function document({ path, title, description, body, categories, assets, image, type = 'website', jsonLd, noindex, scripts = [] }) {
+export function document({ path, title, description, body, categories, assets, image, type = 'website', jsonLd, noindex, scripts = [], styles = [] }) {
   const fullTitle = title ? `${title} — ${config.title}` : `${config.title} — ${config.tagline}`;
   const desc = description || config.tagline;
   const url = absolute(path);
@@ -65,7 +65,7 @@ ${image ? `<meta property="og:image" content="${esc(image)}">\n<meta name="twitt
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="application/rss+xml" title="${esc(config.title)}" href="/feed.xml">
 <link rel="stylesheet" href="${assets.css}">
-<script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+${styles.map((href) => `<link rel="stylesheet" href="${href}">\n`).join('')}<script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 ${scripts.map((src) => `<script src="${src}" defer></script>\n`).join('')}<script src="${assets.js}" defer></script>
 ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>\n` : ''}</head>
 <body class="flex min-h-dvh flex-col">

@@ -191,3 +191,69 @@ export const moderate = () =>
 
 export const preview = () =>
   `<div class="preview-banner" data-preview-banner>Private preview. This page isn’t public and isn’t indexed.</div><div data-preview><div class="wrap"><div class="status-card"><h1>Loading preview…</h1></div></div></div>`;
+
+// --- the writing desk (/write/), driven by client/write.js -----------------
+
+export function write({ categories }) {
+  const catOptions = categories.map((c) => `<option value="${c.slug}">${esc(c.name)}</option>`).join('');
+  const catChecks = categories.map((c) => `<label class="check"><input type="checkbox" name="extra" value="${c.slug}"> ${esc(c.name)}</label>`).join('');
+  return `<div class="wrap desk" data-desk>
+<section data-view="loading"><p class="desk-note">Opening your desk…</p></section>
+
+<section data-view="login" hidden>
+  <form class="login" data-login novalidate>
+    <div><p class="kicker kicker-accent">Your writing desk</p><h1 class="mt-3">Welcome back.</h1><p class="desk-note">Sign in to write, edit and publish.</p></div>
+    <div class="field-group"><label for="w-email">Email</label><input id="w-email" class="field" type="email" name="email" autocomplete="username" required></div>
+    <div class="field-group"><label for="w-pass">Password</label><input id="w-pass" class="field" type="password" name="password" autocomplete="current-password" required></div>
+    <button class="btn" type="submit">Sign in</button>
+    <p class="form-status" role="status" aria-live="polite"></p>
+  </form>
+</section>
+
+<section data-view="home" hidden>
+  <div class="desk-bar"><div><p class="kicker kicker-accent">Your writing desk</p><h1 class="mt-3">Hello, Aditi.</h1></div><div class="desk-actions"><button class="btn" type="button" data-new>New piece</button><a class="btn btn-quiet" href="/" target="_blank" rel="noopener">View site</a><button class="link-btn" type="button" data-signout>Sign out</button></div></div>
+  <div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="true" data-tab="pieces">Pieces</button><button class="tab" role="tab" aria-selected="false" data-tab="comments">Comments<span class="badge" data-pending-count hidden></span></button></div>
+  <div data-panel="pieces"><div class="piece-list" data-pieces></div></div>
+  <div data-panel="comments" hidden>
+    <div class="mod-filter" data-mod-filter><button class="chip" aria-current="page" data-status="pending">Waiting</button><button class="chip" data-status="approved">Approved</button><button class="chip" data-status="spam">Spam</button><button class="chip" data-status="rejected">Rejected</button></div>
+    <div data-mod-list></div>
+  </div>
+</section>
+
+<section data-view="editor" hidden>
+  <form data-editor novalidate>
+    <div class="desk-bar"><button class="link-btn" type="button" data-back>← All pieces</button><div class="desk-actions"><span class="chip-status" data-status-chip>Draft</span><button class="btn btn-quiet" type="button" data-preview-link hidden>Copy preview link</button></div></div>
+    <div class="restore" data-restore hidden><span>You have unsaved writing from earlier on this device.</span><span class="desk-actions"><button class="btn" type="button" data-restore-yes>Bring it back</button><button class="link-btn" type="button" data-restore-no>Discard</button></span></div>
+    <div class="editor">
+      <div>
+        <label class="sr-only" for="e-title">Title</label>
+        <input id="e-title" class="title-input" name="title" placeholder="Title" autocomplete="off">
+        <div class="write-tabs"><div class="seg" role="group" aria-label="Mode"><button type="button" aria-pressed="true" data-mode="write">Write</button><button type="button" aria-pressed="false" data-mode="preview">Preview</button></div><button class="btn btn-quiet" type="button" data-insert-image>Insert image</button></div>
+        <label class="sr-only" for="e-content">The piece</label>
+        <textarea id="e-content" class="content-input" name="content" placeholder="Start writing… Line breaks stay exactly as you type them. Leave an empty line between stanzas."></textarea>
+        <div class="preview-pane" data-preview-pane hidden><div class="prose-article" data-preview-body></div></div>
+        <p class="help">Line breaks are kept as typed. <code>*italic*</code> · <code>**bold**</code> · <code>&gt; quote</code> · <code>---</code> section break. Drag a photo into the box, or use <em>Insert image</em>.</p>
+        <p class="help" data-html-note hidden>This piece came from WordPress, so it’s written in HTML. Edit the words between the tags.</p>
+      </div>
+      <aside class="panel" aria-label="Piece settings">
+        <div class="save-row"><button class="btn" type="button" data-primary>Publish</button><button class="btn btn-quiet" type="button" data-secondary>Save draft</button><p class="save-hint" data-save-hint></p></div>
+        <div><h2>Category</h2><div class="mt-3"><label for="e-cat">Main category</label><select id="e-cat" class="field" name="category">${catOptions}</select></div><div class="mt-3"><span class="lbl">Also show it in</span><div class="checks" data-extra>${catChecks}</div></div></div>
+        <div><label for="e-excerpt">Excerpt <span class="counter" data-excerpt-count></span></label><textarea id="e-excerpt" class="field" name="excerpt" maxlength="300" placeholder="A line or two to draw readers in. Leave empty to use the opening lines."></textarea></div>
+        <div><span class="lbl">Cover image</span><div class="cover-drop" data-cover-drop tabindex="0" role="button" aria-label="Choose a cover image"><span data-cover-empty>Drop an image here<br>or click to choose</span><img data-cover-img alt="" hidden></div><div class="cover-tools" data-cover-tools hidden><button class="link-btn" type="button" data-cover-change>Change</button><button class="link-btn" type="button" data-cover-remove>Remove</button></div><label class="mt-3" for="e-alt" style="margin-top:.75rem">Describe the image <small class="text-ink-3">(for screen readers)</small></label><input id="e-alt" class="field" name="cover_alt" maxlength="200"></div>
+        <div><label for="e-date">Publication date</label><input id="e-date" class="field" type="datetime-local" name="date"><p class="help" data-date-hint></p></div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" name="pinned"> <span>Pin to the top of the homepage</span></label>
+          <div class="inline" data-pin-pos hidden><label for="e-pin" style="margin:0">Position</label><input id="e-pin" class="field" type="number" name="pin_order" min="1" step="1" value="1"></div>
+          <label class="check"><input type="checkbox" name="comments" checked> <span>Allow comments</span></label>
+          <label class="check"><input type="checkbox" name="notify" checked> <span>Email subscribers when it goes live</span></label>
+        </div>
+        <div><label for="e-slug">Web address</label><input id="e-slug" class="field" name="slug" autocomplete="off" spellcheck="false"><p class="help" data-url-hint></p><p class="warn" data-url-warn hidden>This piece is already live. Changing its date or web address changes its link, and links people have already shared will stop working.</p></div>
+        <div><button class="btn btn-danger" type="button" data-delete>Delete this piece</button></div>
+      </aside>
+    </div>
+  </form>
+</section>
+<input type="file" accept="image/*" data-file hidden>
+<div class="toast" role="status" aria-live="polite" data-toast hidden></div>
+</div>`;
+}

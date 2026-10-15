@@ -160,7 +160,7 @@
       ]
     },
     {
-      "source": "/(preview|moderate|subscribe|unsubscribe)/(.*)",
+      "source": "/(preview|moderate|subscribe|unsubscribe|write)/(.*)",
       "headers": [
         {
           "key": "X-Robots-Tag",
